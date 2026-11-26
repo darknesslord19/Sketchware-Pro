@@ -54,7 +54,7 @@ public class LogReaderActivity extends BaseAppCompatActivity {
     private final Pattern logPattern = Pattern.compile("^(.*\\d) ([VAFDEIW]) (.*): (.*)");
     private final ArrayList<HashMap<String, Object>> mainList = new ArrayList<>();
     private String pkgFilter = "";
-    private String packageName = "pro.sketchware";
+    private String packageName = pro.sketchware.BuildConfig.APPLICATION_ID;
     private boolean autoScroll = true;
     private ArrayList<String> pkgFilterList = new ArrayList<>();
 
