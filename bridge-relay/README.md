@@ -9,4 +9,4 @@
 
 Adresi bilen herkes proje dosyalarını okuyabilir; yazma izni açıksa değiştirebilir. Paylaşma ve depoya yazma.
 
-Araçlar: `sk_list_projects`, `sk_list_files`, `sk_read_file`, `sk_get_compile_log`, `sk_write_file`, `sk_delete_file`, `sk_list_backups`, `sk_restore_backup`, `sk_create_project`.
+Araçlar: `sk_list_projects`, `sk_list_files`, `sk_read_file`, `sk_get_compile_log`, `sk_write_file`, `sk_delete_file`, `sk_list_backups`, `sk_restore_backup`, `sk_create_project`, `sk_list_libraries`, `sk_download_library`, `sk_download_status`, `sk_add_libraries`.

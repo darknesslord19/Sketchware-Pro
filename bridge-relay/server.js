@@ -103,7 +103,18 @@ tool('sk_create_project', 'Yeni boş bir Sketchware projesi oluşturur. Yazma iz
   { appName: str('Uygulama adı'), packageName: str('ör. com.ornek.hesap'), workspaceName: str('ör. HesapMakinesi') },
   ['appName', 'packageName', 'workspaceName']);
 
+tool('sk_list_libraries', 'Telefonda indirilmiş yerel kütüphaneleri listeler. ready: dex dosyası hazır.', {}, []);
+tool('sk_download_library', 'Bir Maven kütüphanesini Sketchware\'in indiricisiyle telefona indirir (yazma izni gerekir). '
+  + 'Arka planda çalışır; sonucu sk_download_status ile sor. Yalnızca kullanıcının istediği iş için gereken, '
+  + 'bilinen kütüphaneleri indir ve sürümü açıkça belirt.',
+  { dependency: str('grup:ad:sürüm'), skipDependencies: { type: 'boolean', description: 'Alt bağımlılıkları atla' } }, ['dependency']);
+tool('sk_download_status', 'Son kütüphane indirmesinin durumunu, indirilen adları ve sorunları döndürür.', {}, []);
+tool('sk_add_libraries', 'İndirilmiş kütüphaneleri projeye bağlar (yedek alınır, yazma izni gerekir). Proje kapalı olmalı.',
+  { projectId, names: { type: 'array', items: { type: 'string' }, description: 'sk_list_libraries adları' } }, ['projectId', 'names']);
+
 const ACTION = {
+  sk_list_libraries: 'list_libraries', sk_download_library: 'download_library',
+  sk_download_status: 'download_status', sk_add_libraries: 'add_libraries',
   sk_write_file: 'write_file', sk_delete_file: 'delete_file', sk_list_backups: 'list_backups',
   sk_restore_backup: 'restore_backup', sk_create_project: 'create_project',
   sk_list_projects: 'list_projects', sk_list_files: 'list_files',
@@ -126,7 +137,7 @@ async function handleRpc(m) {
     switch (m.method) {
       case 'initialize':
         return ok({ protocolVersion: (m.params && m.params.protocolVersion) || '2025-03-26',
-          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.2.0' } });
+          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.3.0' } });
       case 'ping': return ok({});
       case 'tools/list': return ok({ tools: TOOLS });
       case 'tools/call': return ok(await callTool(m.params && m.params.name, m.params && m.params.arguments));

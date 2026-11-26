@@ -32,7 +32,8 @@ final class BridgeCommands {
     private static final List<String> ENCRYPTED = Arrays.asList("view", "logic", "file", "library", "resource");
 
     private static final List<String> WRITES =
-            Arrays.asList("write_file", "delete_file", "restore_backup", "create_project");
+            Arrays.asList("write_file", "delete_file", "restore_backup", "create_project",
+                    "download_library", "add_libraries");
     private static final int MAX_WRITE = 400_000;
 
     private BridgeCommands() {
@@ -44,6 +45,16 @@ final class BridgeCommands {
                     + "ekranından \"Yazmaya izin ver\" seçeneğini açmalı.");
         }
         switch (action) {
+            case "list_libraries":
+                return BridgeLibraries.list();
+            case "download_library":
+                return BridgeLibraries.download(args.getString("dependency"),
+                        args.optBoolean("skipDependencies", false));
+            case "download_status":
+                return BridgeLibraries.status();
+            case "add_libraries":
+                return changed("Projeye eklendi", BridgeLibraries.addToProject(project(args),
+                        storage(".sketchware/data/" + projectId(args)), args.getJSONArray("names")));
             case "write_file":
                 return writeFile(args);
             case "delete_file":
@@ -147,7 +158,7 @@ final class BridgeCommands {
         return slice(new String(readBytes(log), StandardCharsets.UTF_8), args.optInt("offset", 0));
     }
 
-    private static File storage(String relative) {
+    static File storage(String relative) {
         return new File(Environment.getExternalStorageDirectory(), relative);
     }
 

@@ -197,8 +197,8 @@ public class BridgeActivity extends BaseAppCompatActivity {
         allowWrite.setChecked(BridgeService.isWriteAllowed());
         allowWrite.setOnCheckedChangeListener((button, checked) -> BridgeService.setWriteAllowed(checked));
         card.addView(allowWrite);
-        TextView note = text("Claude proje oluşturabilir, dosya yazıp silebilir. Her değişiklikten önce "
-                + "yedek alınır. Bağlantı kapanınca izin de kapanır.", 12, DIM);
+        TextView note = text("Claude proje oluşturabilir, kütüphane indirebilir, dosya yazıp silebilir. "
+                + "Proje değişikliklerinden önce yedek alınır. Bağlantı kapanınca izin de kapanır.", 12, DIM);
         note.setPadding(0, dp(8), 0, 0);
         card.addView(note);
         return card;

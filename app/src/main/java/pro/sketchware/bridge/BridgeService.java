@@ -101,6 +101,14 @@ public class BridgeService extends Service {
                 return "Yedekleri listeliyorum";
             case "create_project":
                 return "Yeni proje oluşturuyorum";
+            case "list_libraries":
+                return "Kütüphanelere bakıyorum";
+            case "download_library":
+                return "Kütüphane indiriyorum";
+            case "download_status":
+                return "İndirmeyi kontrol ediyorum";
+            case "add_libraries":
+                return "Kütüphaneyi projeye ekliyorum";
             default:
                 return "Çalışıyorum";
         }

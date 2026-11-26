@@ -277,9 +277,13 @@ class DependencyResolver(
 
     private fun unzip(path: Path) {
         val zipFile = ZipFile(path.toFile())
+        val destination = path.parent.toAbsolutePath().normalize()
         zipFile.use { zip ->
             zip.entries().asSequence().forEach { entry ->
-                val entryDestination = path.parent.resolve(entry.name)
+                val entryDestination = destination.resolve(entry.name).normalize()
+                if (!entryDestination.startsWith(destination)) {
+                    throw SecurityException("Archive entry escapes library folder: ${entry.name}")
+                }
                 if (entry.isDirectory) {
                     Files.createDirectories(entryDestination)
                 } else {
