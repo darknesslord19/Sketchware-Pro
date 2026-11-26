@@ -9,10 +9,12 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -59,12 +61,21 @@ public class BridgeActivity extends BaseAppCompatActivity {
     private EditText input;
     private Button connectButton;
     private Switch allowWrite;
+    private Switch floating;
+    /** İzin ekranına gidildiyse, dönüşte robot kendiliğinden açılır. */
+    private boolean awaitingOverlayPermission;
     private Boolean shownRunning;
 
     private final Runnable refresh = new Runnable() {
         @Override
         public void run() {
             showStatus(BridgeService.getStatus());
+            // Robot panelden kapatılırsa düğme de güncellenir.
+            boolean overlayOn = BridgeOverlay.isEnabled(BridgeActivity.this)
+                    && Settings.canDrawOverlays(BridgeActivity.this);
+            if (floating.isChecked() != overlayOn) {
+                floating.setChecked(overlayOn);
+            }
             robot.evaluateJavascript("window.skBot&&skBot.update("
                     + JSONObject.quote(BridgeService.getRobotState()) + ","
                     + JSONObject.quote(BridgeService.getTask()) + ")", null);
@@ -89,6 +100,7 @@ public class BridgeActivity extends BaseAppCompatActivity {
         content.addView(connectButton, spaced(52));
 
         content.addView(createPermissionCard(), spaced());
+        content.addView(createOverlayCard(), spaced());
         content.addView(createPrivacyCard(), spaced());
 
         Button robotSettings = new Button(this);
@@ -199,6 +211,35 @@ public class BridgeActivity extends BaseAppCompatActivity {
         card.addView(allowWrite);
         TextView note = text("Claude proje oluşturabilir, kütüphane indirebilir, dosya yazıp silebilir. "
                 + "Proje değişikliklerinden önce yedek alınır. Bağlantı kapanınca izin de kapanır.", 12, DIM);
+        note.setPadding(0, dp(8), 0, 0);
+        card.addView(note);
+        return card;
+    }
+
+    private View createOverlayCard() {
+        LinearLayout card = card();
+        floating = new Switch(this);
+        floating.setText("Yüzen robot");
+        floating.setTextColor(TEXT);
+        floating.setTextSize(15);
+        floating.setTypeface(Typeface.DEFAULT_BOLD);
+        floating.setThumbTintList(switchColors(GREEN, 0xFFB8C0CF));
+        floating.setTrackTintList(switchColors(0x8034D399, 0x66707784));
+        floating.setChecked(BridgeOverlay.isEnabled(this) && Settings.canDrawOverlays(this));
+        floating.setOnCheckedChangeListener((button, checked) -> {
+            if (checked && !Settings.canDrawOverlays(this)) {
+                button.setChecked(false);
+                awaitingOverlayPermission = true;
+                SketchwareUtil.toast("\"Diğer uygulamaların üzerinde göster\" iznini aç");
+                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())));
+            } else {
+                BridgeOverlay.setEnabled(this, checked);
+            }
+        });
+        card.addView(floating);
+        TextView note = text("Robot diğer ekranların üstünde durur; sürükleyip taşıyabilirsin. Dokununca "
+                + "yapılan işlemler ve bağlantı düğmeleri açılır.", 12, DIM);
         note.setPadding(0, dp(8), 0, 0);
         card.addView(note);
         return card;
@@ -401,6 +442,7 @@ public class BridgeActivity extends BaseAppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if ("skbot".equals(request.getUrl().getScheme())) {
                     showRobotFullScreen(false);
+                    BridgeOverlay.reloadRobot();
                 }
                 return true;
             }
@@ -425,6 +467,13 @@ public class BridgeActivity extends BaseAppCompatActivity {
     @Override
     public void onResume() {
         super.onResume();
+        if (awaitingOverlayPermission) {
+            awaitingOverlayPermission = false;
+            if (Settings.canDrawOverlays(this)) {
+                BridgeOverlay.setEnabled(this, true);
+            }
+        }
+        BridgeOverlay.sync(this);
         handler.post(refresh);
     }
 

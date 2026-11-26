@@ -44,7 +44,43 @@ public class BridgeService extends Service {
     /** Kalıcı değildir: bağlantı kapanınca ya da uygulama yeniden başlayınca kapanır. */
     private static volatile boolean writeAllowed;
 
+    /** Yüzen robotta gösterilen son işlemler; yalnızca bellekte tutulur. */
+    private static final int MAX_ACTIVITY = 40;
+    private static final java.util.ArrayDeque<String> activity = new java.util.ArrayDeque<>();
+
     private volatile Thread worker;
+
+    static java.util.List<String> getActivity() {
+        synchronized (activity) {
+            return new java.util.ArrayList<>(activity);
+        }
+    }
+
+    private static void record(String line) {
+        String time = new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(new java.util.Date());
+        synchronized (activity) {
+            activity.addLast(time + "  " + line);
+            while (activity.size() > MAX_ACTIVITY) {
+                activity.removeFirst();
+            }
+        }
+    }
+
+    /** İşlemin hangi proje, dosya ya da kütüphane üzerinde olduğunu yazar. */
+    private static String target(JSONObject command) {
+        JSONObject args = command.optJSONObject("args");
+        if (args == null) {
+            return "";
+        }
+        StringBuilder text = new StringBuilder();
+        for (String key : new String[]{"projectId", "path", "dependency", "name"}) {
+            String value = args.optString(key);
+            if (!value.isEmpty()) {
+                text.append(" · ").append("projectId".equals(key) ? "#" : "").append(value);
+            }
+        }
+        return text.toString();
+    }
 
     static String getSavedLink(Context context) {
         return context.getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_LINK, "");
@@ -127,6 +163,7 @@ public class BridgeService extends Service {
             return START_NOT_STICKY;
         }
         startForeground(NOTIFICATION_ID, buildNotification());
+        BridgeOverlay.sync(this);
         BridgeLink link = BridgeLink.parse(getSavedLink(this));
         if (link == null) {
             stopSelf();
@@ -220,8 +257,10 @@ public class BridgeService extends Service {
             JSONObject args = command.optJSONObject("args");
             String data = BridgeCommands.run(this, command.getString("action"),
                     args == null ? new JSONObject() : args, writeAllowed);
+            record("✓ " + describe(command) + target(command));
             return result.put("ok", true).put("data", data);
         } catch (Throwable e) {
+            record("✗ " + describe(command) + target(command) + "\n      " + e.getMessage());
             return result.put("ok", false).put("error", String.valueOf(e.getMessage()));
         }
     }

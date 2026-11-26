@@ -99,6 +99,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #gbot .eye { position: relative; }
 #gbot .eyes { transition: transform .35s cubic-bezier(.3,.9,.3,1), opacity .25s; }
 @media (prefers-reduced-motion: reduce) { #gbot .bot, #gbot .rim.rain, #gbot .halo { animation: none !important; } }
+/* yüzen robot: saydam zemin, ortalanmış küçük boy */
+html.mini, html.mini body { background: transparent; }
+html.mini #gbot { top: 50%; margin-top: -31px; transform: scale(1.2); }
 </style></head>
 <body>
 <div id="gbot" data-state="off" role="img" aria-label="Claude bağlantı robotu"><div class="bot"><div class="halo green"></div><div class="halo rain"></div><div class="sphere"></div><div class="visor"><div class="tkwrap"><div class="tkin" id="gbTk"></div></div></div><div class="rim off"></div><div class="rim green"></div><div class="rim rain"></div><div class="eyes" id="gbEyes"><div class="eye"></div><div class="eye"></div></div></div></div>
@@ -212,7 +215,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
       if (state !== 'active') { lastTask = ''; return; }
       if (cfg.status && task && task !== lastTask) { lastTask = task; ticker(task, true); }
     },
-    edit: openEditor
+    edit: openEditor,
+    mini: function () { document.documentElement.classList.add('mini'); }
   };
   loadCfg();
 })();
