@@ -112,7 +112,12 @@ tool('sk_download_status', 'Son kütüphane indirmesinin durumunu, indirilen adl
 tool('sk_add_libraries', 'İndirilmiş kütüphaneleri projeye bağlar (yedek alınır, yazma izni gerekir). Proje kapalı olmalı.',
   { projectId, names: { type: 'array', items: { type: 'string' }, description: 'sk_list_libraries adları' } }, ['projectId', 'names']);
 
+tool('sk_report_result', 'Sonucu telefondaki robotta gösterir. Kullanıcının istediği iş bittiğinde, son araç çağrısı olarak '
+  + 'bir kez çağır. success yalnızca yapılan işlemler doğrulandıysa true olsun; iş yarım kaldıysa false gönder.',
+  { success: { type: 'boolean', description: 'İş başarıyla tamamlandı mı' }, summary: str('Kısa Türkçe özet') }, ['success']);
+
 const ACTION = {
+  sk_report_result: 'report_result',
   sk_list_libraries: 'list_libraries', sk_download_library: 'download_library',
   sk_download_status: 'download_status', sk_add_libraries: 'add_libraries',
   sk_write_file: 'write_file', sk_delete_file: 'delete_file', sk_list_backups: 'list_backups',
@@ -137,7 +142,8 @@ async function handleRpc(m) {
     switch (m.method) {
       case 'initialize':
         return ok({ protocolVersion: (m.params && m.params.protocolVersion) || '2025-03-26',
-          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.3.0' } });
+          instructions: 'Telefondaki bir işi bitirdiğinde sonucu sk_report_result ile bildir.',
+          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.4.0' } });
       case 'ping': return ok({});
       case 'tools/list': return ok({ tools: TOOLS });
       case 'tools/call': return ok(await callTool(m.params && m.params.name, m.params && m.params.arguments));

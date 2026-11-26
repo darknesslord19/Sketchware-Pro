@@ -45,6 +45,10 @@ final class BridgeCommands {
                     + "ekranından \"Yazmaya izin ver\" seçeneğini açmalı.");
         }
         switch (action) {
+            case "report_result":
+                // Ekrandaki bildirimi hizmet gösterir; burada yalnızca istek doğrulanır.
+                args.getBoolean("success");
+                return "Sonuç robotta gösterildi";
             case "list_libraries":
                 return BridgeLibraries.list();
             case "download_library":

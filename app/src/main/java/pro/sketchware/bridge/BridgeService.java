@@ -7,8 +7,11 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.SystemClock;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -39,6 +42,8 @@ public class BridgeService extends Service {
     private static volatile String status = "Kapalı";
     /** Komut kısa sürse de robot "kullanımda" görünümünü bu süre boyunca korur. */
     private static final long ACTIVE_HOLD_MS = 4000;
+    /** Sonuç yazısı robotun üzerinde okunabilecek kadar kalır. */
+    private static final long RESULT_HOLD_MS = 12_000;
     private static volatile long activeUntil;
     private static volatile String task = "";
     /** Kalıcı değildir: bağlantı kapanınca ya da uygulama yeniden başlayınca kapanır. */
@@ -145,9 +150,36 @@ public class BridgeService extends Service {
                 return "İndirmeyi kontrol ediyorum";
             case "add_libraries":
                 return "Kütüphaneyi projeye ekliyorum";
+            case "report_result":
+                return succeeded(command) ? "İşlem başarılı ✓" : "İşlem tamamlanamadı";
             default:
                 return "Çalışıyorum";
         }
+    }
+
+    private static boolean succeeded(JSONObject command) {
+        JSONObject args = command.optJSONObject("args");
+        return args != null && args.optBoolean("success", false);
+    }
+
+    /** Claude işi bitirdiğinde sonucu listenin en sonuna yazar ve ekranda gösterir. */
+    private void announce(JSONObject command) {
+        boolean success = succeeded(command);
+        JSONObject args = command.optJSONObject("args");
+        String summary = args == null ? "" : args.optString("summary").replaceAll("\\s+", " ").trim();
+        if (summary.length() > 160) {
+            summary = summary.substring(0, 160) + "…";
+        }
+        String message = success ? "İşlem başarılı, hazır Güven hocam"
+                : "İşlem tamamlanamadı Güven hocam";
+        // Özet önce yazılır; böylece sonuç satırı her zaman en sonda kalır.
+        if (!summary.isEmpty()) {
+            record("• " + summary);
+        }
+        record((success ? "✓ " : "✗ ") + message);
+        activeUntil = SystemClock.elapsedRealtime() + RESULT_HOLD_MS;
+        new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show());
     }
 
     @Nullable
@@ -257,7 +289,11 @@ public class BridgeService extends Service {
             JSONObject args = command.optJSONObject("args");
             String data = BridgeCommands.run(this, command.getString("action"),
                     args == null ? new JSONObject() : args, writeAllowed);
-            record("✓ " + describe(command) + target(command));
+            if ("report_result".equals(command.optString("action"))) {
+                announce(command);
+            } else {
+                record("✓ " + describe(command) + target(command));
+            }
             return result.put("ok", true).put("data", data);
         } catch (Throwable e) {
             record("✗ " + describe(command) + target(command) + "\n      " + e.getMessage());

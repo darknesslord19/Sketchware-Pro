@@ -224,7 +224,7 @@ final class BridgeOverlay {
     private void move(int x, int y) {
         DisplayMetrics screen = screen();
         bubbleParams.x = Math.max(0, Math.min(x, screen.widthPixels - dp(SIZE_DP)));
-        bubbleParams.y = Math.max(0, Math.min(y, screen.heightPixels - dp(SIZE_DP)));
+        bubbleParams.y = Math.max(0, Math.min(y, usableHeight() - dp(SIZE_DP)));
         windows.updateViewLayout(bubble, bubbleParams);
     }
 
@@ -232,7 +232,7 @@ final class BridgeOverlay {
     private void keepOnScreen() {
         DisplayMetrics screen = screen();
         if (bubbleParams.x > screen.widthPixels - dp(SIZE_DP)
-                || bubbleParams.y > screen.heightPixels - dp(SIZE_DP)) {
+                || bubbleParams.y > usableHeight() - dp(SIZE_DP)) {
             closePanel();
             move(bubbleParams.x, bubbleParams.y);
         }
@@ -284,14 +284,41 @@ final class BridgeOverlay {
         DisplayMetrics screen = screen();
         int width = Math.min(dp(300), screen.widthPixels - dp(16));
         panelParams = params(width, WindowManager.LayoutParams.WRAP_CONTENT);
-        panelParams.x = Math.max(0, Math.min(bubbleParams.x + dp(SIZE_DP) / 2 - width / 2,
-                screen.widthPixels - width));
-        int height = dp(300);
-        int below = bubbleParams.y + dp(SIZE_DP);
-        panelParams.y = below + height <= screen.heightPixels ? below : Math.max(0, bubbleParams.y - height);
-        windows.addView(panel, panelParams);
+        // Metinler yazıldıktan sonra gerçek yükseklik ölçülür; tahmini yükseklik paneli robotun üstüne bindiriyordu.
         shownLog = null;
         updatePanel();
+        int height = measuredHeight(width);
+        int usable = usableHeight();
+        // Panel ile robot ekrana birlikte sığmıyorsa (küçük ya da yatay ekran) işlem listesi kısaltılır.
+        int excess = height + dp(SIZE_DP) - usable;
+        boolean noSideRoom = (screen.widthPixels - dp(SIZE_DP)) / 2 < width;
+        if (height > usable || (excess > 0 && noSideRoom)) {
+            scrollParams.height = Math.max(dp(40), scrollParams.height - Math.max(excess, height - usable));
+            height = measuredHeight(width);
+        }
+        // Robot sistemin sınırı dışında kaydedilmişse önce içeri alınır.
+        move(bubbleParams.x, bubbleParams.y);
+        int[] place = BridgePlacement.place(bubbleParams.x, bubbleParams.y, dp(SIZE_DP),
+                width, height, screen.widthPixels, usable);
+        panelParams.x = place[0];
+        panelParams.y = place[1];
+        if (place[2] != bubbleParams.y) {
+            move(bubbleParams.x, place[2]);
+        }
+        windows.addView(panel, panelParams);
+    }
+
+    private int measuredHeight(int width) {
+        panel.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        return panel.getMeasuredHeight();
+    }
+
+    /** Pencere koordinatları durum çubuğunun altından başlar. */
+    private int usableHeight() {
+        int id = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+        int statusBar = id > 0 ? context.getResources().getDimensionPixelSize(id) : dp(24);
+        return screen().heightPixels - statusBar;
     }
 
     private void closePanel() {
