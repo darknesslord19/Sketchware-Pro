@@ -136,6 +136,9 @@ final class BridgeOverlay {
 
         robot = new WebView(context);
         robot.setBackgroundColor(Color.TRANSPARENT);
+        robot.setVerticalScrollBarEnabled(false);
+        robot.setHorizontalScrollBarEnabled(false);
+        robot.setOverScrollMode(View.OVER_SCROLL_NEVER);
         robot.getSettings().setJavaScriptEnabled(true);
         robot.getSettings().setDomStorageEnabled(true);
         robot.getSettings().setAllowFileAccess(false);

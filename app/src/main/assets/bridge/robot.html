@@ -101,7 +101,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 @media (prefers-reduced-motion: reduce) { #gbot .bot, #gbot .rim.rain, #gbot .halo { animation: none !important; } }
 /* yüzen robot: saydam zemin, ortalanmış küçük boy */
 html.mini, html.mini body { background: transparent; }
-html.mini #gbot { top: 50%; margin-top: -31px; transform: scale(1.2); }
+html.mini #gbot { top: 50%; margin-top: -31px; transform: scale(1.1); }
+/* gölge ve ışık pencereye sığmazsa kenarda kare iz bırakır; küçük boyda daraltılır */
+html.mini #gbot .sphere { box-shadow: 0 2px 5px rgba(0,0,0,.3), inset 0 -4px 8px rgba(120,130,150,.35), inset 0 3px 5px rgba(255,255,255,.9); }
+html.mini #gbot .halo { left: 0; right: 0; top: 16%; height: 68%; filter: blur(3px); }
 </style></head>
 <body>
 <div id="gbot" data-state="off" role="img" aria-label="Claude bağlantı robotu"><div class="bot"><div class="halo green"></div><div class="halo rain"></div><div class="sphere"></div><div class="visor"><div class="tkwrap"><div class="tkin" id="gbTk"></div></div></div><div class="rim off"></div><div class="rim green"></div><div class="rim rain"></div><div class="eyes" id="gbEyes"><div class="eye"></div><div class="eye"></div></div></div></div>
