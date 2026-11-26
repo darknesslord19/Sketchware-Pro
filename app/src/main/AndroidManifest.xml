@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <application
@@ -28,6 +29,13 @@
         android:theme="@style/Theme.SketchwarePro"
         android:usesCleartextTraffic="true"
         tools:targetApi="p">
+        <activity
+            android:name="pro.sketchware.bridge.BridgeActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <service
+            android:name="pro.sketchware.bridge.BridgeService"
+            android:exported="false" />
         <activity
             android:name="pro.sketchware.activities.debug.RemoteDebugActivity"
             android:exported="false"

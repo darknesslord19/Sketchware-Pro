@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: sketchware-bridge
+    runtime: docker
+    rootDir: bridge-relay
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: TOKEN
+        generateValue: true

@@ -1,0 +1,33 @@
+name: Bridge debug APK
+
+on:
+  push:
+    branches:
+      - 'claude-bridge'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sketchware-claude-debug
+          path: app/build/outputs/apk/debug/*.apk
