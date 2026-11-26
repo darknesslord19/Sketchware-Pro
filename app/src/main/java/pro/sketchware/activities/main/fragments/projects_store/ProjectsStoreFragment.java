@@ -4,14 +4,17 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
@@ -30,12 +33,19 @@ import com.google.android.material.transition.MaterialFadeThrough;
 import pro.sketchware.R;
 import pro.sketchware.utility.SketchwareUtil;
 
+import java.io.ByteArrayInputStream;
+
 /**
  * Store sekmesi: Sketchub'ın herkese açık web sitesini gösterir. API anahtarı gerekmez.
- * Uygulama içinde yalnızca sketchub.in adresleri açılır; diğerleri ve indirmeler tarayıcıya gider.
+ * Uygulama içinde yalnızca sketchub.in adresleri açılır. Bilinen reklam ağları engellenir,
+ * dosyalar uygulama içinde indirilir.
  */
 public class ProjectsStoreFragment extends Fragment {
     private static final String HOME = "https://web.sketchub.in/";
+    /** Dış bağlantı ve indirmeler yalnızca kullanıcının dokunuşundan sonraki bu süre içinde işlenir. */
+    private static final long TAP_WINDOW_MS = 60_000;
+
+    private long lastTap;
 
     private WebView web;
     private ProgressBar progress;
@@ -61,7 +71,7 @@ public class ProjectsStoreFragment extends Fragment {
         setReenterTransition(new MaterialFadeThrough());
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         FrameLayout root = new FrameLayout(requireContext());
@@ -73,7 +83,13 @@ public class ProjectsStoreFragment extends Fragment {
         web.getSettings().setAllowContentAccess(false);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         web.setWebViewClient(new StoreClient());
-        web.setDownloadListener((url, userAgent, disposition, mimeType, length) -> openOutside(Uri.parse(url)));
+        web.setOnTouchListener((view, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                lastTap = SystemClock.elapsedRealtime();
+            }
+            return false;
+        });
+        web.setDownloadListener((url, userAgent, disposition, mimeType, length) -> download(url));
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
 
         progress = new ProgressBar(requireContext());
@@ -162,10 +178,23 @@ public class ProjectsStoreFragment extends Fragment {
                 && (host.equals("sketchub.in") || host.endsWith(".sketchub.in"));
     }
 
+    private boolean recentlyTapped() {
+        return lastTap != 0 && SystemClock.elapsedRealtime() - lastTap < TAP_WINDOW_MS;
+    }
+
+    /** Her dokunuş en fazla bir indirme ya da dış bağlantı başlatır. */
+    private void download(String url) {
+        if (web == null || !recentlyTapped() || StoreAdBlocker.isAdHost(Uri.parse(url).getHost())) {
+            return;
+        }
+        lastTap = 0;
+        progress.setVisibility(View.GONE);
+        StoreDownloader.start(requireActivity(), url, web.getSettings().getUserAgentString(), web.getUrl());
+    }
+
     private void openOutside(Uri uri) {
-        // Yalnızca web ve e-posta adresleri dışarıda açılır; diğer şemalar yok sayılır.
-        String scheme = uri.getScheme();
-        if (!"https".equals(scheme) && !"http".equals(scheme) && !"mailto".equals(scheme)) {
+        // Yalnızca e-posta adresleri doğrudan dışarıda açılır.
+        if (!"mailto".equals(uri.getScheme())) {
             return;
         }
         try {
@@ -182,9 +211,30 @@ public class ProjectsStoreFragment extends Fragment {
                 return false;
             }
             if (request.isForMainFrame()) {
-                openOutside(request.getUrl());
+                Uri uri = request.getUrl();
+                if ("mailto".equals(uri.getScheme())) {
+                    if (recentlyTapped()) {
+                        openOutside(uri);
+                    }
+                } else {
+                    // Dosyaysa uygulama içinde iner; web sayfasıysa tarayıcı için onay istenir.
+                    download(uri.toString());
+                }
             }
             return true;
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            if (StoreAdBlocker.isAdHost(request.getUrl().getHost())) {
+                return new WebResourceResponse("text/plain", "utf-8", new ByteArrayInputStream(new byte[0]));
+            }
+            return null;
+        }
+
+        @Override
+        public void onPageCommitVisible(WebView view, String url) {
+            view.evaluateJavascript(StoreAdBlocker.HIDE_SCRIPT, null);
         }
 
         @Override
@@ -194,6 +244,7 @@ public class ProjectsStoreFragment extends Fragment {
 
         @Override
         public void onPageFinished(WebView view, String url) {
+            view.evaluateJavascript(StoreAdBlocker.HIDE_SCRIPT, null);
             progress.setVisibility(View.GONE);
             updateBack();
         }

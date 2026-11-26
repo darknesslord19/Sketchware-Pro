@@ -145,6 +145,10 @@ public class BackupFactory {
                 ZipEntry entry = zipFileEntries.nextElement();
                 String entryName = entry.getName();
                 File destFile = new File(destinationDir, entryName);
+                // A crafted backup must not write outside the restore folder.
+                if (!destFile.getCanonicalPath().startsWith(destinationDir.getCanonicalPath() + File.separator)) {
+                    throw new IOException("Backup entry escapes the restore folder: " + entryName);
+                }
                 File destinationParent = destFile.getParentFile();
                 if (destinationParent != null && !destinationParent.exists()) {
                     destinationParent.mkdirs();
