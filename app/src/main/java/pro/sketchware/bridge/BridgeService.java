@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.SystemClock;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -36,6 +37,10 @@ public class BridgeService extends Service {
     private static final int NOTIFICATION_ID = 7301;
 
     private static volatile String status = "Kapalı";
+    /** Komut kısa sürse de robot "kullanımda" görünümünü bu süre boyunca korur. */
+    private static final long ACTIVE_HOLD_MS = 4000;
+    private static volatile long activeUntil;
+    private static volatile String task = "";
 
     private volatile Thread worker;
 
@@ -49,6 +54,35 @@ public class BridgeService extends Service {
 
     static String getStatus() {
         return status;
+    }
+
+    /** Robotun durumu: "off", "idle" ya da "active". */
+    static String getRobotState() {
+        if (!status.startsWith("Bağlı")) {
+            return "off";
+        }
+        return SystemClock.elapsedRealtime() < activeUntil ? "active" : "idle";
+    }
+
+    static String getTask() {
+        return task;
+    }
+
+    private static String describe(JSONObject command) {
+        JSONObject args = command.optJSONObject("args");
+        switch (command.optString("action")) {
+            case "list_projects":
+                return "Projeleri listeliyorum";
+            case "list_files":
+                return "Dosyaları listeliyorum";
+            case "read_file":
+                String path = args == null ? "" : args.optString("path");
+                return "Okuyorum: " + path.substring(path.lastIndexOf('/') + 1);
+            case "compile_log":
+                return "Derleme hatasını okuyorum";
+            default:
+                return "Çalışıyorum";
+        }
     }
 
     @Nullable
@@ -130,6 +164,8 @@ public class BridgeService extends Service {
                 } else if (code == 200) {
                     report("Bağlı, komut çalışıyor");
                     JSONObject command = new JSONObject(readText(connection.getInputStream()));
+                    task = describe(command);
+                    activeUntil = SystemClock.elapsedRealtime() + ACTIVE_HOLD_MS;
                     post(link.endpoint("result"), execute(command));
                     report("Bağlı");
                 } else {
