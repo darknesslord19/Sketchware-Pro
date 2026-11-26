@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -57,7 +58,10 @@ public class BridgeActivity extends BaseAppCompatActivity {
         TextView info = new TextView(this);
         info.setText("Claude'a bağlayıcı olarak eklediğin Sketchware köprü adresini yapıştır.\n\n"
                 + "Bağlantı açıkken Claude, projelerinin dosyalarını ve derleme hatalarını okuyabilir. "
-                + "Dosyalardaki API anahtarları da buna dahildir. Bu sürüm hiçbir dosyayı değiştirmez.\n\n"
+                + "Dosyalardaki API anahtarları da buna dahildir.\n\n"
+                + "\"Yazmaya izin ver\" açıkken proje oluşturabilir, dosya yazıp silebilir. Her değişiklikten "
+                + "önce .sketchware/claude_backups klasörüne yedek alınır. Yazılan kod, derleyip kurduğun "
+                + "uygulamada çalışır. Düzenlenen proje kapalı olmalı.\n\n"
                 + "Adresi kimseyle paylaşma.");
 
         EditText input = new EditText(this);
@@ -67,6 +71,11 @@ public class BridgeActivity extends BaseAppCompatActivity {
         input.setText(BridgeService.getSavedLink(this));
 
         status = new TextView(this);
+
+        CheckBox allowWrite = new CheckBox(this);
+        allowWrite.setText("Yazmaya izin ver");
+        allowWrite.setChecked(BridgeService.isWriteAllowed());
+        allowWrite.setOnCheckedChangeListener((button, checked) -> BridgeService.setWriteAllowed(checked));
 
         Button connect = new Button(this);
         connect.setText("Bağlan");
@@ -85,7 +94,10 @@ public class BridgeActivity extends BaseAppCompatActivity {
 
         Button disconnect = new Button(this);
         disconnect.setText("Bağlantıyı kapat");
-        disconnect.setOnClickListener(v -> stopService(new Intent(this, BridgeService.class)));
+        disconnect.setOnClickListener(v -> {
+            allowWrite.setChecked(false);
+            stopService(new Intent(this, BridgeService.class));
+        });
 
         Button robotSettings = new Button(this);
         robotSettings.setText("Robot ayarları");
@@ -97,6 +109,7 @@ public class BridgeActivity extends BaseAppCompatActivity {
         content.addView(info);
         content.addView(input);
         content.addView(status);
+        content.addView(allowWrite);
         content.addView(connect);
         content.addView(disconnect);
         content.addView(robotSettings);

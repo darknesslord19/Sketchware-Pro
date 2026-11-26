@@ -41,6 +41,8 @@ public class BridgeService extends Service {
     private static final long ACTIVE_HOLD_MS = 4000;
     private static volatile long activeUntil;
     private static volatile String task = "";
+    /** Kalıcı değildir: bağlantı kapanınca ya da uygulama yeniden başlayınca kapanır. */
+    private static volatile boolean writeAllowed;
 
     private volatile Thread worker;
 
@@ -64,6 +66,14 @@ public class BridgeService extends Service {
         return SystemClock.elapsedRealtime() < activeUntil ? "active" : "idle";
     }
 
+    static boolean isWriteAllowed() {
+        return writeAllowed;
+    }
+
+    static void setWriteAllowed(boolean allowed) {
+        writeAllowed = allowed;
+    }
+
     static String getTask() {
         return task;
     }
@@ -80,6 +90,17 @@ public class BridgeService extends Service {
                 return "Okuyorum: " + path.substring(path.lastIndexOf('/') + 1);
             case "compile_log":
                 return "Derleme hatasını okuyorum";
+            case "write_file":
+                String target = args == null ? "" : args.optString("path");
+                return "Yazıyorum: " + target.substring(target.lastIndexOf('/') + 1);
+            case "delete_file":
+                return "Dosya siliyorum (yedekli)";
+            case "restore_backup":
+                return "Yedeği geri yüklüyorum";
+            case "list_backups":
+                return "Yedekleri listeliyorum";
+            case "create_project":
+                return "Yeni proje oluşturuyorum";
             default:
                 return "Çalışıyorum";
         }
@@ -119,6 +140,7 @@ public class BridgeService extends Service {
             worker = null;
         }
         status = "Kapalı";
+        writeAllowed = false;
         super.onDestroy();
     }
 
@@ -132,7 +154,7 @@ public class BridgeService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_mtrl_settings)
                 .setContentTitle("Claude bağlantısı açık")
-                .setContentText("Claude projelerini okuyabilir")
+                .setContentText("Claude projelerine erişebilir")
                 .setOngoing(true)
                 .addAction(0, "Kapat", stop)
                 .build();
@@ -184,11 +206,12 @@ public class BridgeService extends Service {
         }
     }
 
-    private static JSONObject execute(JSONObject command) throws Exception {
+    private JSONObject execute(JSONObject command) throws Exception {
         JSONObject result = new JSONObject().put("id", command.getString("id"));
         try {
             JSONObject args = command.optJSONObject("args");
-            String data = BridgeCommands.run(command.getString("action"), args == null ? new JSONObject() : args);
+            String data = BridgeCommands.run(this, command.getString("action"),
+                    args == null ? new JSONObject() : args, writeAllowed);
             return result.put("ok", true).put("data", data);
         } catch (Throwable e) {
             return result.put("ok", false).put("error", String.valueOf(e.getMessage()));

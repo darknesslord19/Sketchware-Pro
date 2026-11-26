@@ -84,7 +84,28 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { projectId, offset: { type: 'number' } }, required: ['projectId'] } }
 ];
 
+const str = description => ({ type: 'string', description });
+const tool = (name, description, properties, required) =>
+  TOOLS.push({ name, description, inputSchema: { type: 'object', properties, required } });
+
+tool('sk_write_file', 'Projenin veri klasörüne metin dosyası yazar (öncesinde yedek alınır, yazma izni gerekir). '
+  + 'Var olan dosyanın tamamının yerine geçer. files/java/<Ad>.java, Sketchware\'in aynı adla ürettiği sınıfın yerine geçer; '
+  + 'files/resource/layout/<ad>.xml üretilen ekranın yerine geçer. view, logic, file, library, resource dosyaları '
+  + 'düz metin verilir ve şifrelenerek yazılır; yazmadan önce mevcut içeriği oku. Proje düzenleyicide kapalı olmalı.',
+  { projectId, path: str('data klasörüne göre yol'), content: str('Dosyanın tüm içeriği') }, ['projectId', 'path', 'content']);
+tool('sk_delete_file', 'Proje veri klasöründen bir dosya siler. Yedek alınır, geri yüklenebilir. Yazma izni gerekir.',
+  { projectId, path: str('data klasörüne göre yol') }, ['projectId', 'path']);
+tool('sk_list_backups', 'Projede Claude değişikliklerinden önce alınan yedekleri yeniden eskiye listeler.',
+  { projectId }, ['projectId']);
+tool('sk_restore_backup', 'Yedekteki dosyayı değişiklik öncesi durumuna döndürür. Yazma izni gerekir.',
+  { projectId, backupId: str('Yedek kimliği') }, ['projectId', 'backupId']);
+tool('sk_create_project', 'Yeni boş bir Sketchware projesi oluşturur. Yazma izni gerekir.',
+  { appName: str('Uygulama adı'), packageName: str('ör. com.ornek.hesap'), workspaceName: str('ör. HesapMakinesi') },
+  ['appName', 'packageName', 'workspaceName']);
+
 const ACTION = {
+  sk_write_file: 'write_file', sk_delete_file: 'delete_file', sk_list_backups: 'list_backups',
+  sk_restore_backup: 'restore_backup', sk_create_project: 'create_project',
   sk_list_projects: 'list_projects', sk_list_files: 'list_files',
   sk_read_file: 'read_file', sk_get_compile_log: 'compile_log'
 };
@@ -105,7 +126,7 @@ async function handleRpc(m) {
     switch (m.method) {
       case 'initialize':
         return ok({ protocolVersion: (m.params && m.params.protocolVersion) || '2025-03-26',
-          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.1.0' } });
+          capabilities: { tools: {} }, serverInfo: { name: 'sketchware-bridge', version: '0.2.0' } });
       case 'ping': return ok({});
       case 'tools/list': return ok({ tools: TOOLS });
       case 'tools/call': return ok(await callTool(m.params && m.params.name, m.params && m.params.arguments));
