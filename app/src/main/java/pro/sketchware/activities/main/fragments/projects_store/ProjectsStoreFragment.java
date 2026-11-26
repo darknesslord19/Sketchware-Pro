@@ -182,6 +182,18 @@ public class ProjectsStoreFragment extends Fragment {
         return lastTap != 0 && SystemClock.elapsedRealtime() - lastTap < TAP_WINDOW_MS;
     }
 
+    /** Sitenin indirme formunu, kullanıcının doldurduğu verilerle uygulama içinden gönderir. */
+    private void submitDownload(String request) {
+        String page = web == null ? null : web.getUrl();
+        if (page == null || !isSketchub(Uri.parse(page))) {
+            return;
+        }
+        progress.setVisibility(View.GONE);
+        int fragment = page.indexOf('#');
+        StoreDownloader.start(requireActivity(), fragment < 0 ? page : page.substring(0, fragment),
+                web.getSettings().getUserAgentString(), page, StoreDownloadForm.body(request));
+    }
+
     /** Her dokunuş en fazla bir indirme ya da dış bağlantı başlatır. */
     private void download(String url) {
         if (web == null || !recentlyTapped() || StoreAdBlocker.isAdHost(Uri.parse(url).getHost())) {
@@ -207,6 +219,12 @@ public class ProjectsStoreFragment extends Fragment {
     private final class StoreClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (StoreDownloadForm.SCHEME.equals(request.getUrl().getScheme())) {
+                if (request.isForMainFrame()) {
+                    submitDownload(request.getUrl().toString());
+                }
+                return true;
+            }
             if (isSketchub(request.getUrl())) {
                 return false;
             }
@@ -235,6 +253,7 @@ public class ProjectsStoreFragment extends Fragment {
         @Override
         public void onPageCommitVisible(WebView view, String url) {
             view.evaluateJavascript(StoreAdBlocker.HIDE_SCRIPT, null);
+            view.evaluateJavascript(StoreDownloadForm.SCRIPT, null);
         }
 
         @Override
@@ -245,6 +264,7 @@ public class ProjectsStoreFragment extends Fragment {
         @Override
         public void onPageFinished(WebView view, String url) {
             view.evaluateJavascript(StoreAdBlocker.HIDE_SCRIPT, null);
+            view.evaluateJavascript(StoreDownloadForm.SCRIPT, null);
             progress.setVisibility(View.GONE);
             updateBack();
         }

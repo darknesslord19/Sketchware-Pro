@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,6 +41,11 @@ final class StoreDownloader {
     }
 
     static void start(Activity activity, String url, String userAgent, String referer) {
+        start(activity, url, userAgent, referer, null);
+    }
+
+    /** postBody verilirse ilk istek, sitenin indirme formundaki gibi POST olarak gönderilir. */
+    static void start(Activity activity, String url, String userAgent, String referer, String postBody) {
         String scheme = Uri.parse(url).getScheme();
         if (!"https".equals(scheme) && !"http".equals(scheme)) {
             SketchwareUtil.toast("Bu indirme türü uygulama içinde desteklenmiyor");
@@ -62,6 +68,7 @@ final class StoreDownloader {
             File target = null;
             try {
                 String current = url;
+                String body = postBody;
                 HttpURLConnection connection = null;
                 for (int hop = 0; connection == null; hop++) {
                     if (hop > MAX_REDIRECTS) {
@@ -86,9 +93,29 @@ final class StoreDownloader {
                     if (cookie != null) {
                         next.setRequestProperty("Cookie", cookie);
                     }
+                    if (body != null) {
+                        Uri from = Uri.parse(url);
+                        next.setRequestMethod("POST");
+                        next.setDoOutput(true);
+                        next.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                        next.setRequestProperty("Origin", from.getScheme() + "://" + from.getHost());
+                        try (OutputStream out = next.getOutputStream()) {
+                            out.write(body.getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
                     int code = next.getResponseCode();
+                    // Çerez veren yanıtlar tarayıcıdaki gibi saklanır.
+                    String setCookie = next.getHeaderField("Set-Cookie");
+                    if (setCookie != null) {
+                        CookieManager.getInstance().setCookie(current, setCookie);
+                    }
                     if (code >= 300 && code < 400 && next.getHeaderField("Location") != null) {
+                        String previous = current;
                         current = new URL(new URL(current), next.getHeaderField("Location")).toString();
+                        // Form verisi yalnızca 307/308 ile ve aynı sunucuya yönlenirse yeniden gönderilir.
+                        if ((code != 307 && code != 308) || !new URL(previous).getHost().equals(new URL(current).getHost())) {
+                            body = null;
+                        }
                         next.disconnect();
                     } else if (code == 200) {
                         connection = next;
@@ -104,7 +131,9 @@ final class StoreDownloader {
                         || !disposition.toLowerCase(Locale.US).startsWith("attachment"))) {
                     connection.disconnect();
                     String page = current;
-                    finish(activity, progress, () -> askBrowser(activity, page));
+                    finish(activity, progress, postBody != null
+                            ? () -> showPageInstead(activity)
+                            : () -> askBrowser(activity, page));
                     return;
                 }
 
@@ -182,6 +211,15 @@ final class StoreDownloader {
             progress.dismiss();
             then.run();
         });
+    }
+
+    private static void showPageInstead(Activity activity) {
+        new MaterialAlertDialogBuilder(activity)
+                .setTitle("Dosya gelmedi")
+                .setMessage("Site dosya yerine bir sayfa gönderdi. Sayfayı yenileyip "
+                        + "\"Ben robot değilim\" kutusunu yeniden işaretle ve tekrar dene.")
+                .setPositiveButton("Tamam", null)
+                .show();
     }
 
     private static void askBrowser(Activity activity, String url) {
